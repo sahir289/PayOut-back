@@ -49,16 +49,11 @@ app.post('/upload', upload.single('file'), async (req, res) => {
           clientRefId: `IND${numericUUID}`,
           mode: row['Payment Type']
         };
-
-        console.log("🚀 ~ .on ~ data:", data)
-
         try {
           const response = await axios.post(apiEndpoint, data, {
             headers: headers,
             maxBodyLength: Infinity
           });
-          console.log("🚀 ~ .on ~ response:", response);
-
           // Store data in MongoDB for successful responses
           try {
             const fileData = await prisma.fileUserData.create({
@@ -116,13 +111,87 @@ app.post('/upload', upload.single('file'), async (req, res) => {
 app.get('/get-res', async (req, res) => {
   try {
     const getRes = await prisma.fileUserData.findMany()
-    console.log("🚀 ~ app.get ~ getRes:", getRes)
     res.send(getRes)
   } catch (error) {
-    console.log("🚀 ~ app.get ~ error:", error)
-
   }
 })
+
+
+
+app.get('/get-res-pending', async (req, res) => {
+  try {
+    const pendingResponses = await prisma.fileUserData.findMany({
+      select: {
+        response: true,
+        amount:true
+      }
+
+    });
+    console.log(pendingResponses);
+    const pendingResponsesFiltered = pendingResponses.filter(entry => (
+      entry.response.status === "PENDING" && entry.response.ref_id
+    ));
+
+    console.log("Pending Responses with ref_id:", pendingResponsesFiltered);
+    res.send(pendingResponsesFiltered)
+
+  } catch (error) {
+  }
+})
+
+// app.get('/get-res-success', async (req, res) => {
+//   try {
+//     const pendingResponses = await prisma.fileUserData.findMany({
+//       select: {
+//         response: true,
+//         amount:true
+//       }
+      
+//     });
+//     console.log(pendingResponses);
+//     const pendingResponsesFiltered = pendingResponses.filter(entry => (
+//       entry.response.status === "SUCCESS" 
+//     ));
+
+//     console.log("Pending Responses with ref_id:", pendingResponsesFiltered);
+//     res.send(pendingResponsesFiltered)
+
+//   } catch (error) {
+//   }
+// })
+
+
+app.get('/get-res-success-pending', async (req, res) => {
+  try {
+    const pendingResponses = await prisma.fileUserData.findMany({
+      select: {
+        response: true,
+        amount: true
+      }
+    });
+
+    console.log(pendingResponses);
+    const pendingResponsesFiltered = pendingResponses.filter(entry => (
+      entry.response.status === "SUCCESS" || entry.response.status === "PENDING"
+    ));
+
+    console.log("Pending Responses with ref_id:", pendingResponsesFiltered);
+
+    const totalAmount = pendingResponsesFiltered.reduce((sum, entry) => sum + entry.amount, 0);
+
+    console.log("Total Amount   totalAmount 20984:", totalAmount);
+
+    res.send({
+      data: pendingResponsesFiltered,
+      totalAmount
+    });
+
+  } catch (error) {
+    res.status(500).send({ error: 'Internal Server Error' });
+  }
+});
+
+
 const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
